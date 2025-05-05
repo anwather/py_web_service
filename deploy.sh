@@ -2,6 +2,9 @@
 # 
 # Deployment Script for Test Web Connectivity Service
 # This script installs and configures the web service on an Ubuntu server
+# 
+# Can be run in unattended mode:
+# ./deploy.sh [source_dir]
 #
 
 set -e  # Exit on error
@@ -26,10 +29,9 @@ SERVICE_DIR="/opt/py_web_service"
 echo "Creating service directory at $SERVICE_DIR..."
 mkdir -p $SERVICE_DIR
 
-# Copy files to the service directory
-echo "Where are the web service files located? (Enter path or press Enter for current directory)"
-read SOURCE_DIR
-SOURCE_DIR=${SOURCE_DIR:-$(pwd)}
+# Get source directory from command line argument or use current directory
+SOURCE_DIR="${1:-$(pwd)}"
+echo "Using source directory: $SOURCE_DIR"
 
 echo "Copying files from $SOURCE_DIR to $SERVICE_DIR..."
 cp -r $SOURCE_DIR/* $SERVICE_DIR/
