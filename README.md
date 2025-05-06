@@ -207,6 +207,7 @@ server:
 | `/` | GET | Web interface with documentation |
 | `/hostname` | GET | Returns the hostname of the server |
 | `/health` | GET | Returns the health status of the service |
+| `/network` | GET | Returns network information including IP address and DNS servers |
 
 ## Security Considerations
 
@@ -247,6 +248,7 @@ To test the container using WSL on your Windows machine:
    ```bash
    curl http://localhost:5000/health
    curl http://localhost:5000/hostname
+   curl http://localhost:5000/network
    ```
 
 7. Access from Windows browser:

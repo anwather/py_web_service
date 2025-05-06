@@ -9,6 +9,7 @@ and display the hostname of the machine it's running on.
 import os
 import socket
 import yaml
+import dns.resolver
 from flask import Flask, jsonify, render_template_string
 
 app = Flask(__name__)
@@ -100,6 +101,13 @@ HOME_TEMPLATE = """
             <p>Returns the health status of the service.</p>
             <p>Example response: <code>{{ '{"status": "healthy"}' }}</code></p>
         </div>
+        
+        <div class="endpoint">
+            <h3>Network Information</h3>
+            <p><code>GET /network</code></p>
+            <p>Returns network information including IP address and DNS servers.</p>
+            <p>Example response: <code>{{ '{"ip_address": "192.168.1.1", "dns_servers": ["8.8.8.8", "8.8.4.4"]}' }}</code></p>
+        </div>
     </div>
 </body>
 </html>
@@ -120,6 +128,29 @@ def get_hostname():
 def health_check():
     """Return the health status of the service"""
     return jsonify({'status': 'healthy'})
+
+@app.route('/network')
+def network_info():
+    """Return network information including IP address and DNS servers"""
+    # Get IP address
+    hostname = socket.gethostname()
+    ip_address = socket.gethostbyname(hostname)
+    
+    # Get DNS servers
+    dns_servers = []
+    try:
+        # Try to get system DNS servers
+        dns_resolver = dns.resolver.Resolver()
+        dns_servers = dns_resolver.nameservers
+    except Exception as e:
+        print(f"Error getting DNS servers: {e}")
+        # Fallback to common DNS servers
+        dns_servers = ["8.8.8.8", "8.8.4.4"]  # Google DNS as fallback
+    
+    return jsonify({
+        'ip_address': ip_address,
+        'dns_servers': dns_servers
+    })
 
 if __name__ == '__main__':
     config = load_config()
