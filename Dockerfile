@@ -25,7 +25,7 @@ RUN chown -R appuser:appuser /app
 USER appuser
 
 # Expose the port the app runs on
-EXPOSE 5000
+EXPOSE 80
 
 # Command to run the application
 CMD ["python", "app.py"]
