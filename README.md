@@ -54,6 +54,116 @@ A lightweight web service designed to verify network connectivity and provide ba
 
 ## Deployment Options
 
+### Using Azure Container Registry (ACR)
+
+To build and store your container in Azure Container Registry:
+
+1. Create an Azure Container Registry (if you don't have one already):
+   ```bash
+   az group create --name myResourceGroup --location eastus
+   az acr create --resource-group myResourceGroup --name myContainerRegistry --sku Basic --admin-enabled true
+   ```
+
+2. **Option A: Build using ACR Tasks (Recommended)**
+   
+   Build the container image directly in Azure Container Registry without Docker installed locally:
+   
+   ```bash
+   # Quick task from local source code
+   az acr build --registry myContainerRegistry --image web-connectivity-service:v1.0.0 --file Dockerfile .
+   
+   # Or from a Git repository
+   az acr build --registry myContainerRegistry \
+     --image web-connectivity-service:v1.0.0 \
+     --file Dockerfile \
+     https://github.com/yourusername/web-connectivity-service.git
+   ```
+   
+   **Benefits of ACR Tasks:**
+   - No local Docker installation required
+   - Builds run in Azure (cloud-native)
+   - Automatic OS and framework patching
+   - Triggers on source code commits and base image updates
+   - Multi-step tasks support with YAML
+
+3. **Option B: Set up automated builds with triggers**
+
+   Create a task that automatically rebuilds your image when source code changes:
+   
+   ```bash
+   # Create a task that monitors a GitHub repository
+   az acr task create \
+     --registry myContainerRegistry \
+     --name web-connectivity-build \
+     --image web-connectivity-service:{{.Run.ID}} \
+     --context https://github.com/yourusername/web-connectivity-service.git \
+     --file Dockerfile \
+     --git-access-token <personal-access-token>
+   
+   # Manually trigger the task
+   az acr task run --registry myContainerRegistry --name web-connectivity-build
+   ```
+
+4. **Option C: Traditional local build and push**
+
+   If you prefer building locally:
+   
+   ```bash
+   # Authenticate to ACR
+   az acr login --name myContainerRegistry
+   
+   # Build and tag the image
+   docker build -t mycontainerregistry.azurecr.io/web-connectivity-service:v1.0.0 .
+   
+   # Push to ACR
+   docker push mycontainerregistry.azurecr.io/web-connectivity-service:v1.0.0
+   ```
+
+5. Deploy from ACR to Azure services:
+
+   **Azure Container Instances (ACI) with Managed Identity**:
+   ```bash
+   # Create a user-assigned managed identity
+   az identity create --resource-group myResourceGroup --name myACIIdentity
+   
+   # Get the identity resource ID
+   identityResourceId=$(az identity show --resource-group myResourceGroup --name myACIIdentity --query id --output tsv)
+   
+   # Assign AcrPull role to the identity
+   acrResourceId=$(az acr show --name myContainerRegistry --resource-group myResourceGroup --query id --output tsv)
+   az role assignment create --assignee-object-id $(az identity show --resource-group myResourceGroup --name myACIIdentity --query principalId --output tsv) --scope $acrResourceId --role AcrPull
+   
+   # Create container instance with managed identity
+   az container create \
+     --resource-group myResourceGroup \
+     --name web-connectivity-service \
+     --image mycontainerregistry.azurecr.io/web-connectivity-service:v1.0.0 \
+     --assign-identity $identityResourceId \
+     --registry-login-server mycontainerregistry.azurecr.io \
+     --dns-name-label web-connectivity-service \
+     --ports 5000
+   ```
+
+   **Azure App Service with Managed Identity (Recommended)**:
+   ```bash
+   # Create an App Service plan
+   az appservice plan create --name myAppServicePlan --resource-group myResourceGroup --sku B1 --is-linux
+
+   # Create the web app
+   az webapp create --resource-group myResourceGroup --plan myAppServicePlan --name myWebApp --deployment-container-image-name mycontainerregistry.azurecr.io/web-connectivity-service:v1.0.0
+
+   # Enable managed identity
+   az webapp identity assign --resource-group myResourceGroup --name myWebApp
+
+   # Assign AcrPull role to the web app's managed identity
+   principalId=$(az webapp identity show --resource-group myResourceGroup --name myWebApp --query principalId --output tsv)
+   acrId=$(az acr show --name myContainerRegistry --resource-group myResourceGroup --query id --output tsv)
+   az role assignment create --assignee $principalId --scope $acrId --role AcrPull
+
+   # Configure web app to use managed identity for ACR
+   az webapp config set --resource-group myResourceGroup --name myWebApp --generic-configurations '{"acrUseManagedIdentityCreds": true}'
+   ```
+
 ### Azure Container Instances
 
 Deploy to Azure Container Instances using the Azure CLI:
